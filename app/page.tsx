@@ -19,8 +19,10 @@ export default function LoginPage() {
     setError('');
 
     try {
-      // Use the actual backend URL. In production, this should be an environment variable.
-      const response = await fetch('http://localhost:8000/api/login', {
+      // Hardcode the backend URL for now to test
+      const backendUrl = 'http://103.249.84.244:8000';
+      console.log('DEBUG: Backend URL:', backendUrl);
+      const response = await fetch(`${backendUrl}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

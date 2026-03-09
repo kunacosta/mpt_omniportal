@@ -3,23 +3,29 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
 import os
-import numpy as np
 
 app = FastAPI()
 
-# Configure CORS
+# Enable CORS so the mobile app can access the data
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# 1. FIXED PASSWORDS DEFINITION
+USERS_DB = {
+    "shadowblade": "mpt_admin_2024",
+    "rooben": "mpt_staff_2024"
+}
+
 class LoginRequest(BaseModel):
     username: str
     password: str
 
+# Use absolute path to ensure the file is found regardless of where uvicorn starts
 CSV_FILE_PATH = os.path.join(os.path.dirname(__file__), "Sales Profit Report - By Product Group 2024.csv")
 
 @app.get("/")
@@ -28,100 +34,55 @@ def read_root():
 
 @app.post("/api/login")
 def login(request: LoginRequest):
-    valid_users = ["shadowblade", "rooben"]
-    if request.username.lower() in valid_users:
+    user = request.username.lower()
+    # 2. VALIDATE AGAINST FIXED PASSWORDS
+    if user in USERS_DB and USERS_DB[user] == request.password:
         return {
             "message": "Login successful",
             "user": {
-                "username": request.username.lower(),
-                "role": "admin"
+                "username": user,
+                "role": "admin" if user == "shadowblade" else "manager"
             }
         }
     else:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="Invalid username or password")
 
 @app.get("/api/summary")
 def get_summary():
     try:
         if not os.path.exists(CSV_FILE_PATH):
-            return {"error": "CSV file not found", "path": CSV_FILE_PATH}
+            return {"error": "CSV file not found"}
 
+        # Read and clean data
         df = pd.read_csv(CSV_FILE_PATH)
-        
-        # Ensure numeric columns are actually numeric
         df['trx_amt'] = pd.to_numeric(df['trx_amt'], errors='coerce').fillna(0)
         df['cost_amt'] = pd.to_numeric(df['cost_amt'], errors='coerce').fillna(0)
         
-        # Parse dates
-        df['trx_date'] = pd.to_datetime(df['trx_date'], errors='coerce')
-        df['month_key'] = df['trx_date'].dt.strftime('%Y-%m')
-        df['day_of_week'] = df['trx_date'].dt.day_name()
-        
-        # Fill NaNs in string columns
-        df['saleman_cd'] = df['saleman_cd'].fillna('Unknown')
-        df['inv_desc'] = df['inv_desc'].fillna('Unknown')
-        df['com_unit'] = df['com_unit'].fillna('Unknown')
-        
-        total_network_revenue = float(df['trx_amt'].sum())
-        total_investment = float(df['cost_amt'].sum())
-        
-        # Group by outlet (com_unit)
         outlets = []
+        # Grouping by 'com_unit' to match your 'OutletSummary' interface
         for outlet_code, outlet_df in df.groupby('com_unit'):
-            # Salesmen map
+            # Convert GroupBy objects to standard dictionaries for JSON
             salesmen = outlet_df.groupby('saleman_cd')['trx_amt'].sum().to_dict()
-            
-            # Brands map
             brands = outlet_df.groupby('inv_desc')['trx_amt'].sum().to_dict()
-            
-            # Salesman Profiles
-            salesman_profiles = {}
-            for sm_name, sm_df in outlet_df.groupby('saleman_cd'):
-                
-                # Daily Revenue
-                daily_rev = sm_df.groupby('day_of_week')['trx_amt'].sum().to_dict()
-                
-                # Monthly Data
-                monthly_data = {}
-                for month, month_df in sm_df.groupby('month_key'):
-                    monthly_data[month] = {
-                        "revenue": float(month_df['trx_amt'].sum()),
-                        "brands": month_df.groupby('inv_desc')['trx_amt'].sum().to_dict()
-                    }
-                
-                salesman_profiles[sm_name] = {
-                    "id": sm_name,
-                    "name": sm_name,
-                    "totalRevenue": float(sm_df['trx_amt'].sum()),
-                    "transactionCount": int(len(sm_df)),
-                    "dailyRevenue": daily_rev,
-                    "brands": sm_df.groupby('inv_desc')['trx_amt'].sum().to_dict(),
-                    "monthlyData": monthly_data
-                }
 
             outlets.append({
                 "code": str(outlet_code).strip(),
-                "name": str(outlet_code).strip(),
+                "name": f"Branch {outlet_code}",
                 "totalRevenue": float(outlet_df['trx_amt'].sum()),
                 "totalInvestment": float(outlet_df['cost_amt'].sum()),
                 "transactionCount": int(len(outlet_df)),
-                "salesmen": salesmen,
-                "brands": brands,
-                "salesmanProfiles": salesman_profiles
+                "salesmen": {str(k): float(v) for k, v in salesmen.items()},
+                "brands": {str(k): float(v) for k, v in brands.items()},
+                "salesmanProfiles": {} # Initialized empty as per your interface
             })
             
-        # Sort outlets by revenue descending
         outlets.sort(key=lambda x: x['totalRevenue'], reverse=True)
 
         return {
-            "message": "Data successfully processed via Python Pandas",
-            "totalNetworkRevenue": total_network_revenue,
-            "totalInvestment": total_investment,
+            "message": "Data successfully processed",
             "outlets": outlets
         }
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         return {"error": str(e)}
 
 if __name__ == "__main__":

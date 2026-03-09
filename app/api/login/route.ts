@@ -6,7 +6,9 @@ export async function POST(request: Request) {
     
     // Forward the request to the PHP backend
     // Note: This runs on the server, so it avoids CORS/Mixed Content issues from the browser
-    const response = await fetch('http://103.249.84.244/api_login.php', {
+    // Call FastAPI backend on AlmaLinux server
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+    const response = await fetch(`${backendUrl}/api/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
