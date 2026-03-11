@@ -87,4 +87,5 @@ def get_summary():
 
 if __name__ == "__main__":
     import uvicorn
+    # 0.0.0.0 tells the server to listen on all available network interfaces
     uvicorn.run(app, host="0.0.0.0", port=8000)
