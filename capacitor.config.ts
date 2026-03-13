@@ -8,7 +8,8 @@ const config: CapacitorConfig = {
     // This allows the app to load your UI using http so it matches your backend
     androidScheme: 'http', 
     // This tells the app that the backend IP is a trusted destination
-    allowNavigation: ['103.249.84.244']
+    allowNavigation: ['103.249.84.244'],
+    cleartext: true
   }
 };
 
