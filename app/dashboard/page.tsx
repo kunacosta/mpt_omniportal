@@ -38,7 +38,7 @@ export default function DashboardPage() {
   };
 
   const selectedOutlet = useMemo(() => 
-    outlets.find(o => o.code === selectedOutletCode) || null, 
+    outlets?.find(o => o.code === selectedOutletCode) || null, 
   [outlets, selectedOutletCode]);
 
   const selectedSalesman = useMemo(() => {
@@ -61,9 +61,9 @@ export default function DashboardPage() {
   };
 
   // Calculate high-level metrics
-  const totalNetworkRevenue = outlets.reduce((acc, curr) => acc + curr.totalRevenue, 0);
-  const totalNetworkInvestment = outlets.reduce((acc, curr) => acc + curr.totalInvestment, 0);
-  const totalNetworkTransactions = outlets.reduce((acc, curr) => acc + (curr.transactionCount || 0), 0);
+  const totalNetworkRevenue = (outlets || []).reduce((acc, curr) => acc + curr.totalRevenue, 0);
+  const totalNetworkInvestment = (outlets || []).reduce((acc, curr) => acc + curr.totalInvestment, 0);
+  const totalNetworkTransactions = (outlets || []).reduce((acc, curr) => acc + (curr.transactionCount || 0), 0);
   const networkATV = totalNetworkTransactions > 0 ? totalNetworkRevenue / totalNetworkTransactions : 0;
 
   // Detail View Metrics
@@ -203,7 +203,7 @@ ${brandSuccess.bottom.map((b, i) => `${i + 1}. ${b.name}: ${formatCurrencyFull(b
     URL.revokeObjectURL(url);
   };
 
-  if (isLoading) {
+  if (isLoading || !outlets) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
